@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   Delete02Icon,
@@ -18,7 +19,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { MAX_SOURCES_PER_WORKSPACE } from "@/lib/limit";
 import { cn } from "@/lib/utils";
 
-import AddSourceDialog from "./add-source-dialog";
+import AddSourceDialog, { type SourceTab } from "./add-source-dialog";
 
 export type Source = {
   id: string;
@@ -40,6 +41,8 @@ type SourcePanelProps = {
   onAddOpenChange: (open: boolean) => void;
   onSelect: (sourceId: string) => void;
   onCreateText: (title: string, text: string) => Promise<boolean>;
+  onCreateFiles: (files: File[]) => Promise<boolean>;
+  onCreateWebsite: (url: string, title?: string) => Promise<boolean>;
   onDelete: (sourceId: string) => void;
   onRetry: (sourceId: string) => void;
 };
@@ -50,6 +53,12 @@ const kindIcons = {
   WEBSITE: Globe02Icon,
 };
 
+const addActions = [
+  { tab: "text" as const, label: "Paste text", icon: Note01Icon },
+  { tab: "files" as const, label: "Upload files", icon: File01Icon },
+  { tab: "website" as const, label: "Add website", icon: Globe02Icon },
+];
+
 export default function SourcePanel({
   sources,
   loading,
@@ -59,10 +68,19 @@ export default function SourcePanel({
   onAddOpenChange,
   onSelect,
   onCreateText,
+  onCreateFiles,
+  onCreateWebsite,
   onDelete,
   onRetry,
 }: SourcePanelProps) {
-  const atLimit = sources.length >= MAX_SOURCES_PER_WORKSPACE;
+  const [addTab, setAddTab] = useState<SourceTab>("text");
+  const remainingSlots = Math.max(0, MAX_SOURCES_PER_WORKSPACE - sources.length);
+  const atLimit = remainingSlots === 0;
+
+  function openAdd(tab: SourceTab = "text") {
+    setAddTab(tab);
+    onAddOpenChange(true);
+  }
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-background">
@@ -83,7 +101,8 @@ export default function SourcePanel({
           variant="ghost"
           type="button"
           disabled={atLimit}
-          onClick={() => onAddOpenChange(true)}
+          title={atLimit ? "Source limit reached" : "Add source"}
+          onClick={() => openAdd("text")}
         >
           <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} />
           <span className="sr-only">Add source</span>
@@ -97,21 +116,42 @@ export default function SourcePanel({
           </div>
         ) : sources.length === 0 ? (
           <div className="h-full p-3 pt-0">
-            <button
-              type="button"
-              onClick={() => onAddOpenChange(true)}
-              className="flex h-full w-full flex-col items-center justify-center gap-3 border border-dashed bg-muted/20 px-4 text-center transition-colors hover:bg-muted/40"
-            >
-              <div className="flex size-9 items-center justify-center bg-muted text-muted-foreground">
-                <HugeiconsIcon icon={Note01Icon} strokeWidth={2} className="size-4" />
+            <div className="flex h-full flex-col items-center justify-center gap-4 border border-dashed bg-muted/20 px-3 text-center">
+              <div className="flex items-center">
+                {addActions.map((action, index) => (
+                  <div
+                    key={action.tab}
+                    className={cn(
+                      "flex size-8 items-center justify-center border border-background bg-muted text-muted-foreground",
+                      index > 0 && "-ml-1.5",
+                    )}
+                  >
+                    <HugeiconsIcon icon={action.icon} strokeWidth={2} className="size-3.5" />
+                  </div>
+                ))}
               </div>
               <div className="space-y-1">
                 <p className="text-xs font-medium">Add your first source</p>
-                <p className="max-w-[180px] text-[11px] leading-relaxed text-muted-foreground">
-                  Paste notes to start grounding this notebook.
+                <p className="max-w-[200px] text-[11px] leading-relaxed text-muted-foreground">
+                  Paste notes, upload a file, or add a webpage to ground this notebook.
                 </p>
               </div>
-            </button>
+              <div className="flex w-full flex-col gap-1.5">
+                {addActions.map((action) => (
+                  <Button
+                    key={action.tab}
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="w-full justify-start"
+                    onClick={() => openAdd(action.tab)}
+                  >
+                    <HugeiconsIcon icon={action.icon} strokeWidth={2} />
+                    {action.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
           </div>
         ) : (
           <ScrollArea className="h-full">
@@ -143,11 +183,7 @@ export default function SourcePanel({
                         <p className="truncate text-xs font-medium">{source.title}</p>
                         <div className="mt-0.5 flex items-center gap-1.5">
                           <p className="truncate text-[11px] text-muted-foreground">
-                            {source.kind === "TEXT"
-                              ? "Text"
-                              : source.kind === "FILE"
-                                ? "File"
-                                : "Website"}
+                            {sourceKindLabel(source)}
                           </p>
                           <SourceStatusBadge source={source} />
                         </div>
@@ -185,11 +221,34 @@ export default function SourcePanel({
       <AddSourceDialog
         open={addOpen}
         saving={saving}
+        remainingSlots={remainingSlots}
+        defaultTab={addTab}
         onOpenChange={onAddOpenChange}
         onCreateText={onCreateText}
+        onCreateFiles={onCreateFiles}
+        onCreateWebsite={onCreateWebsite}
       />
     </div>
   );
+}
+
+function sourceKindLabel(source: Source) {
+  if (source.kind === "WEBSITE") {
+    if (source.originalUrl) {
+      try {
+        return new URL(source.originalUrl).hostname.replace(/^www\./, "");
+      } catch {
+        return "Website";
+      }
+    }
+    return "Website";
+  }
+
+  if (source.kind === "FILE") {
+    return "File";
+  }
+
+  return "Text";
 }
 
 function SourceStatusBadge({ source }: { source: Source }) {
@@ -198,7 +257,11 @@ function SourceStatusBadge({ source }: { source: Source }) {
   }
 
   if (source.status === "FAILED") {
-    return <Badge variant="destructive">{source.errorMessage ?? "Failed"}</Badge>;
+    return (
+      <Badge variant="destructive" title={source.errorMessage ?? "Failed"}>
+        Failed
+      </Badge>
+    );
   }
 
   return <Badge variant="outline">Indexing</Badge>;

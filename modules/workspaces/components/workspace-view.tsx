@@ -67,6 +67,88 @@ export default function WorkspaceView({
     return true;
   }
 
+  async function createFileSources(files: File[]) {
+    if (files.length === 0) {
+      return false;
+    }
+
+    setSaving(true);
+    const formData = new FormData();
+    for (const file of files) {
+      formData.append("files", file);
+    }
+
+    const response = await fetch(`/api/workspaces/${workspaceId}/sources/upload`, {
+      method: "POST",
+      body: formData,
+    });
+    setSaving(false);
+
+    if (!response.ok) {
+      const data = (await response.json().catch(() => null)) as { error?: string } | null;
+      toast.error(data?.error ?? "Could not upload files");
+      return false;
+    }
+
+    const data = (await response.json()) as { sources: Source[]; skippedCount: number };
+    if (data.sources.length === 0) {
+      toast.error(
+        data.skippedCount > 0
+          ? "This workspace is at the source limit"
+          : "Could not upload files",
+      );
+      return false;
+    }
+
+    if (data.skippedCount > 0) {
+      toast.message(
+        `${data.sources.length} added, ${data.skippedCount} skipped at the source limit`,
+      );
+    } else if (data.sources.every((source) => source.status === "FAILED")) {
+      toast.error("Could not process the selected files");
+    } else if (data.sources.some((source) => source.status === "FAILED")) {
+      toast.message("Sources added. Some files need a retry.");
+    } else {
+      toast.success(data.sources.length === 1 ? "File added" : `${data.sources.length} files added`);
+    }
+
+    await loadSources();
+    setSelectedSourceId(data.sources[0]?.id ?? null);
+    setHighlightExcerpt(null);
+    return true;
+  }
+
+  async function createWebsiteSource(url: string, title?: string) {
+    setSaving(true);
+    const response = await fetch(`/api/workspaces/${workspaceId}/sources/website`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        url,
+        title: title || undefined,
+      }),
+    });
+    setSaving(false);
+
+    if (!response.ok) {
+      const data = (await response.json().catch(() => null)) as { error?: string } | null;
+      toast.error(data?.error ?? "Could not add website");
+      return false;
+    }
+
+    const created = (await response.json()) as Source;
+    if (created.status === "FAILED") {
+      toast.error(created.errorMessage ?? "Could not scrape this webpage");
+    } else {
+      toast.success("Website added");
+    }
+
+    await loadSources();
+    setSelectedSourceId(created.id);
+    setHighlightExcerpt(null);
+    return true;
+  }
+
   async function deleteSource(sourceId: string) {
     const response = await fetch(
       `/api/workspaces/${workspaceId}/sources/${sourceId}`,
@@ -152,6 +234,8 @@ export default function WorkspaceView({
             onAddOpenChange={setAddOpen}
             onSelect={selectSource}
             onCreateText={createTextSource}
+            onCreateFiles={createFileSources}
+            onCreateWebsite={createWebsiteSource}
             onDelete={deleteSource}
             onRetry={retrySource}
           />
