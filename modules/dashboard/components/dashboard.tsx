@@ -70,7 +70,7 @@ export default function Dashboard({ userName }: DashboardProps) {
   async function loadWorkspaces() {
     const response = await fetch("/api/workspaces");
     if (response.status === 401) {
-      router.push("/login");
+        router.push("/auth/sign-in");
       return;
     }
     if (!response.ok) {

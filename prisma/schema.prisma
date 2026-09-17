@@ -84,9 +84,39 @@ model Workspace {
   title String
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  sources Source[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@map("workspace")
   @@index([userId])
+}
+
+enum SourceKind {
+  TEXT
+  FILE
+  WEBSITE
+}
+
+enum SourceStatus {
+  PROCESSING
+  READY
+  FAILED
+}
+
+model Source {
+  id            String       @id @default(cuid())
+  workspaceId   String
+  title         String
+  kind          SourceKind
+  originalUrl   String?
+  extractedText String
+  status        SourceStatus
+  errorMessage  String?
+  createdAt     DateTime     @default(now())
+  workspace     Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@map("source")
 }
