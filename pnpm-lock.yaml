@@ -23,6 +23,12 @@ importers:
       '@langchain/openai':
         specifier: ^1.5.13
         version: 1.5.13(@langchain/core@1.2.11(openai@7.15.0(undici@7.29.1)(zod@4.6.5)))(undici@7.29.1)
+      '@langchain/textsplitters':
+        specifier: ^1.0.1
+        version: 1.0.1(@langchain/core@1.2.11(openai@7.15.0(undici@7.29.1)(zod@4.6.5)))
+      '@pinecone-database/pinecone':
+        specifier: ^9.0.0
+        version: 9.0.0
       '@prisma/adapter-pg':
         specifier: ^7.10.0
         version: 7.10.0
@@ -848,6 +854,12 @@ packages:
     peerDependencies:
       '@langchain/core': ^1.2.11
 
+  '@langchain/textsplitters@1.0.1':
+    resolution: {integrity: sha512-rheJlB01iVtrOUzttscutRgLybPH9qR79EyzBEbf1u97ljWyuxQfCwIWK+SjoQTM9O8M7GGLLRBSYE26Jmcoww==}
+    engines: {node: '>=20'}
+    peerDependencies:
+      '@langchain/core': ^1.0.0
+
   '@modelcontextprotocol/sdk@1.30.0':
     resolution: {integrity: sha512-xKd8OIzlqNzcqcNumGAa6g+PW2kjD5vrpcKOnfldAUPP3j7lnqMPwlTXQm8gF+UwH72z0lqaRbjr9hqGz0eITA==}
     engines: {node: '>=18'}
@@ -950,6 +962,10 @@ packages:
   '@opentelemetry/semantic-conventions@1.43.0':
     resolution: {integrity: sha512-eSYWTm620tTk45EKSedaUL8MFYI8hW164hIXsgIHyxu3VobUB3fFCu5t0hQby6OoWRPsG1KkKUG2M5UadiLiVg==}
     engines: {node: '>=14'}
+
+  '@pinecone-database/pinecone@9.0.0':
+    resolution: {integrity: sha512-2SEZEGbQPJTXWiRKSQJghqe7XjfmMRtLvkCdjPc5o+vxTa4ufgSid8j2wd+uQkX2B+n6h8+82SGGeTLttvGZGA==}
+    engines: {node: '>=22.0.0'}
 
   '@prisma/adapter-pg@7.10.0':
     resolution: {integrity: sha512-N7nwSor0HO1Kz6xBv0TPAjAPysKK0fac6p4fVN3ensLOuzc/83Fgmln5k92eK/cvzqdkSR/2kkAqlbcdwVrwpw==}
@@ -5043,6 +5059,11 @@ snapshots:
       - undici
       - ws
 
+  '@langchain/textsplitters@1.0.1(@langchain/core@1.2.11(openai@7.15.0(undici@7.29.1)(zod@4.6.5)))':
+    dependencies:
+      '@langchain/core': 1.2.11(openai@7.15.0(undici@7.29.1)(zod@4.6.5))
+      js-tiktoken: 1.0.21
+
   '@modelcontextprotocol/sdk@1.30.0(@cfworker/json-schema@4.1.1)(supports-color@7.2.0)(zod@3.25.76)':
     dependencies:
       '@hono/node-server': 2.1.1(hono@4.13.8)
@@ -5126,6 +5147,8 @@ snapshots:
   '@nolyfill/is-core-module@1.0.39': {}
 
   '@opentelemetry/semantic-conventions@1.43.0': {}
+
+  '@pinecone-database/pinecone@9.0.0': {}
 
   '@prisma/adapter-pg@7.10.0':
     dependencies:

@@ -1,3 +1,4 @@
+import { indexSource } from "../ai/index-source";
 import prisma from "../db";
 import { MAX_SOURCES_PER_WORKSPACE } from "../limit";
 
@@ -91,14 +92,13 @@ export type ProcessedSource = {
    
   
     try {
-    //   await indexSource(source.id);
+      await indexSource(source.id);
     } catch {
       // indexSource marks the source FAILED before rethrowing.
     }
 
-    return prisma.source.update({
+    return prisma.source.findUniqueOrThrow({
       where: { id: source.id },
-      data: { status: "READY" },
       select: sourceSelect,
     });
   }
