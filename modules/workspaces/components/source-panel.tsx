@@ -8,6 +8,7 @@ import {
   Layers01Icon,
   Note01Icon,
   PlusSignIcon,
+  Refresh01Icon,
 } from "@hugeicons/core-free-icons";
 
 import { Badge } from "@/components/ui/badge";
@@ -40,6 +41,7 @@ type SourcePanelProps = {
   onSelect: (sourceId: string) => void;
   onCreateText: (title: string, text: string) => Promise<boolean>;
   onDelete: (sourceId: string) => void;
+  onRetry: (sourceId: string) => void;
 };
 
 const kindIcons = {
@@ -58,6 +60,7 @@ export default function SourcePanel({
   onSelect,
   onCreateText,
   onDelete,
+  onRetry,
 }: SourcePanelProps) {
   const atLimit = sources.length >= MAX_SOURCES_PER_WORKSPACE;
 
@@ -138,17 +141,29 @@ export default function SourcePanel({
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-xs font-medium">{source.title}</p>
-                        <p className="truncate text-[11px] text-muted-foreground">
-                          {source.kind === "TEXT" ? "Text" : source.kind === "FILE" ? "File" : "Website"}
-                          {" · "}
-                          {source.status === "READY"
-                            ? "Ready"
-                            : source.status === "FAILED"
-                              ? source.errorMessage ?? "Failed"
-                              : "Processing"}
-                        </p>
+                        <div className="mt-0.5 flex items-center gap-1.5">
+                          <p className="truncate text-[11px] text-muted-foreground">
+                            {source.kind === "TEXT"
+                              ? "Text"
+                              : source.kind === "FILE"
+                                ? "File"
+                                : "Website"}
+                          </p>
+                          <SourceStatusBadge source={source} />
+                        </div>
                       </div>
                     </button>
+                    {source.status === "FAILED" ? (
+                      <Button
+                        size="icon-xs"
+                        variant="ghost"
+                        type="button"
+                        onClick={() => onRetry(source.id)}
+                      >
+                        <HugeiconsIcon icon={Refresh01Icon} strokeWidth={2} />
+                        <span className="sr-only">Retry {source.title}</span>
+                      </Button>
+                    ) : null}
                     <Button
                       size="icon-xs"
                       variant="ghost"
@@ -175,4 +190,16 @@ export default function SourcePanel({
       />
     </div>
   );
+}
+
+function SourceStatusBadge({ source }: { source: Source }) {
+  if (source.status === "READY") {
+    return <Badge variant="secondary">Ready</Badge>;
+  }
+
+  if (source.status === "FAILED") {
+    return <Badge variant="destructive">{source.errorMessage ?? "Failed"}</Badge>;
+  }
+
+  return <Badge variant="outline">Indexing</Badge>;
 }

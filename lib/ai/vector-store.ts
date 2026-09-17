@@ -1,6 +1,6 @@
 import { Document } from "@langchain/core/documents";
 import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
-import { Pinecone } from "@pinecone-database/pinecone";
+import { Errors, Pinecone } from "@pinecone-database/pinecone";
 
 import { getEmbeddingModel } from "./model";
 
@@ -50,6 +50,24 @@ function getWorkspaceIndex(workspaceId: string) {
       namespace: workspaceNamespace(workspaceId),
     });
   }
+
+function isMissingNamespaceError(error: unknown) {
+    return (
+      error instanceof Errors.PineconeNotFoundError ||
+      error instanceof Errors.PineconeFailedPreconditionError
+    );
+  }
+
+async function ignoreMissingNamespace(operation: () => Promise<void>) {
+    try {
+      await operation();
+    } catch (error) {
+      if (isMissingNamespaceError(error)) {
+        return;
+      }
+      throw error;
+    }
+  }
   
   export async function upsertSourceChunks(input: {
     workspaceId: string;
@@ -67,11 +85,12 @@ function getWorkspaceIndex(workspaceId: string) {
         },
       }),
     ];
-  
+
     const splitter = new RecursiveCharacterTextSplitter({
       chunkSize: CHUNK_SIZE,
       chunkOverlap: CHUNK_OVERLAP,
     });
+
     const chunks = await splitter.splitDocuments(docs);
     if (chunks.length === 0) {
       throw new Error("No chunks produced from source text");
@@ -80,7 +99,6 @@ function getWorkspaceIndex(workspaceId: string) {
     const embeddings = await getEmbeddingModel();
     const vectors = await embeddings.embedDocuments(chunks.map((chunk) => chunk.pageContent));
     const index = getWorkspaceIndex(input.workspaceId);
-  
     for (let start = 0; start < chunks.length; start += 100) {
       const batchChunks = chunks.slice(start, start + 100);
       const batchVectors = vectors.slice(start, start + 100);
@@ -105,19 +123,19 @@ function getWorkspaceIndex(workspaceId: string) {
   }
   
   export async function deleteSourceVectors(workspaceId: string, sourceId: string) {
-   
-  
-    const index = getWorkspaceIndex(workspaceId);
-    await index.deleteMany({
-      filter: { sourceId: { $eq: sourceId } },
+    await ignoreMissingNamespace(async () => {
+      const index = getWorkspaceIndex(workspaceId);
+      await index.deleteMany({
+        filter: { sourceId: { $eq: sourceId } },
+      });
     });
   }
   
   export async function deleteWorkspaceVectors(workspaceId: string) {
-    
-  
-    const index = getWorkspaceIndex(workspaceId);
-    await index.deleteAll();
+    await ignoreMissingNamespace(async () => {
+      const index = getWorkspaceIndex(workspaceId);
+      await index.deleteAll();
+    });
   }
   
   export async function retrieveChunks(input: {

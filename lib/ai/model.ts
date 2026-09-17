@@ -10,6 +10,7 @@ export async function getChatModel() {
         chatModel = new ChatOpenAI({
             model: process.env.OPENAI_CHAT_MODEL,
             apiKey: process.env.OPENAI_API_KEY,
+            streaming: true,
         });
     }
     return chatModel;

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { deleteSourceVectors } from "@/lib/ai/vector-store";
 import { getOwnedWorkspace } from "@/modules/workspaces/actions";
 import { getSessionUser } from "@/modules/auth/actions";
 import { notFoundResponse, unauthorizedResponse } from "../../route";
@@ -31,10 +32,10 @@ export async function DELETE(request: Request, context: RouteContext) {
         return notFoundResponse();
     }
 
-    // TODO: Deletsource vectors as well 
+    await deleteSourceVectors(workspaceId, sourceId);
     await prisma.source.delete({
         where: { id: sourceId, workspaceId },
     });
 
-    return NextResponse.json(null, { status: 204 });
+    return new NextResponse(null, { status: 204 });
 }

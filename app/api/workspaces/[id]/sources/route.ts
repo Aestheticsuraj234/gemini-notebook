@@ -83,7 +83,7 @@ export async function GET(_request: Request, context: RouteContext) {
         kind: "TEXT",
         extractedText: parsed.data.text ?? "",
       });
-  
+
       return NextResponse.json(serializeSource(source), { status: 201 });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Could not create source";

@@ -88,9 +88,7 @@ export type ProcessedSource = {
       },
       select: sourceSelect,
     });
-  
-   
-  
+
     try {
       await indexSource(source.id);
     } catch {

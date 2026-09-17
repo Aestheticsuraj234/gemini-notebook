@@ -16,9 +16,8 @@ export async function indexSource(sourceId: string) {
       throw new Error("Source not found");
     }
   
-    await deleteSourceVectors(source.workspaceId, source.id);
-  
     try {
+      await deleteSourceVectors(source.workspaceId, source.id);
       await upsertSourceChunks({
         workspaceId: source.workspaceId,
         sourceId: source.id,

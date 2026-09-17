@@ -25,6 +25,7 @@ export default function WorkspaceView({
 }: WorkspaceViewProps) {
   const [sources, setSources] = useState<Source[]>([]);
   const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
+  const [highlightExcerpt, setHighlightExcerpt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
@@ -62,6 +63,7 @@ export default function WorkspaceView({
     toast.success("Source added");
     await loadSources();
     setSelectedSourceId(created.id);
+    setHighlightExcerpt(null);
     return true;
   }
 
@@ -78,14 +80,48 @@ export default function WorkspaceView({
 
     if (selectedSourceId === sourceId) {
       setSelectedSourceId(null);
+      setHighlightExcerpt(null);
     }
 
     toast.success("Source deleted");
     await loadSources();
   }
 
+  async function retrySource(sourceId: string) {
+    const response = await fetch(
+      `/api/workspaces/${workspaceId}/sources/${sourceId}/retry`,
+      { method: "POST" },
+    );
+
+    if (!response.ok) {
+      const data = (await response.json().catch(() => null)) as { error?: string } | null;
+      toast.error(data?.error ?? "Could not retry source");
+      return;
+    }
+
+    toast.success("Source re-indexed");
+    await loadSources();
+  }
+
+  function selectSource(sourceId: string) {
+    setSelectedSourceId(sourceId);
+    setHighlightExcerpt(null);
+  }
+
+  function openSource(sourceId: string, excerpt?: string) {
+    setSelectedSourceId(sourceId);
+    setHighlightExcerpt(excerpt ?? null);
+  }
+
   const selectedSource =
     sources.find((source) => source.id === selectedSourceId) ?? null;
+  const readySourceIds = sources
+    .filter((source) => source.status === "READY")
+    .map((source) => source.id);
+  const chatSourceIds =
+    selectedSourceId && readySourceIds.includes(selectedSourceId)
+      ? [selectedSourceId]
+      : readySourceIds;
 
   return (
     <div
@@ -94,7 +130,11 @@ export default function WorkspaceView({
     >
       <SourceViewer
         source={selectedSource}
-        onClose={() => setSelectedSourceId(null)}
+        excerpt={highlightExcerpt}
+        onClose={() => {
+          setSelectedSourceId(null);
+          setHighlightExcerpt(null);
+        }}
       />
 
       <ResizablePanelGroup
@@ -110,14 +150,21 @@ export default function WorkspaceView({
             selectedSourceId={selectedSourceId}
             addOpen={addOpen}
             onAddOpenChange={setAddOpen}
-            onSelect={setSelectedSourceId}
+            onSelect={selectSource}
             onCreateText={createTextSource}
             onDelete={deleteSource}
+            onRetry={retrySource}
           />
         </ResizablePanel>
         <ResizableHandle withHandle />
         <ResizablePanel id="chat" minSize="30%">
-          <ChatPanel workspaceTitle={workspaceTitle} />
+          <ChatPanel
+            workspaceId={workspaceId}
+            workspaceTitle={workspaceTitle}
+            sourceIds={chatSourceIds}
+            sources={sources}
+            onOpenSource={openSource}
+          />
         </ResizablePanel>
         <ResizableHandle withHandle />
         <ResizablePanel id="artifacts" minSize="18%">
