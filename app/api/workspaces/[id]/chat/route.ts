@@ -1,13 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { runChatGraphStream } from "@/lib/ai/chat-graph";
+import type { ChatStreamEvent } from "@/lib/chat-stream-types";
 import type { ChatCitation } from "@/lib/chat-types";
-import {
-  consumeGroundedAnswerStream,
-  createNoContextResult,
-  prepareStandaloneQuestion,
-  retrieveLabeledDocuments,
-} from "@/lib/ai/rag-chat";
 import {
   createConversationMessage,
   getConversationMessages,
@@ -119,50 +115,40 @@ export async function POST(request: Request, context: RouteContext) {
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {
-      function send(event: unknown) {
+      function send(event: ChatStreamEvent) {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
       }
 
       try {
         send({ type: "user", message: serializeMessage(userMessage) });
 
-        const standaloneQuestion = await prepareStandaloneQuestion(
-          parsed.data.question,
+        const graphStream = runChatGraphStream({
+          question: parsed.data.question,
           recentMessages,
-        );
-        const documents = await retrieveLabeledDocuments({
           workspaceId,
           sourceIds: uniqueSourceIds,
-          question: standaloneQuestion,
         });
 
-        if (documents.length === 0) {
-          const result = createNoContextResult();
-          send({ type: "token", text: result.answer });
-          const assistantMessage = await createConversationMessage({
-            conversationId: conversation.id,
-            role: "ASSISTANT",
-            content: result.answer,
-            citations: result.citations,
-          });
-          send({ type: "done", message: serializeMessage(assistantMessage) });
-          return;
+        let next = await graphStream.next();
+        while (!next.done) {
+          send(next.value);
+          next = await graphStream.next();
         }
 
-        const result = await consumeGroundedAnswerStream(
-          standaloneQuestion,
-          documents,
-          (token) => send({ type: "token", text: token }),
-        );
+        const result = next.value;
         const assistantMessage = await createConversationMessage({
           conversationId: conversation.id,
           role: "ASSISTANT",
-          content: result.answer,
+          content: result.content,
           citations: result.citations,
         });
-        send({ type: "done", message: serializeMessage(assistantMessage) });
+        send({
+          type: "done",
+          userMessage: serializeMessage(userMessage),
+          assistantMessage: serializeMessage(assistantMessage),
+        });
       } catch {
-        send({ type: "error", error: "Could not stream a reply" });
+        send({ type: "error", message: "Could not stream a reply" });
       } finally {
         controller.close();
       }

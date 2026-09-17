@@ -35,6 +35,7 @@ import {
   MessageScrollerViewport,
 } from "@/components/ui/message-scroller";
 import { Spinner } from "@/components/ui/spinner";
+import type { ChatStreamEvent } from "@/lib/chat-stream-types";
 import type { ChatCitation, ChatMessageItem } from "@/lib/chat-types";
 
 import ChatCitationChip from "./chat-citation";
@@ -47,12 +48,6 @@ type ChatPanelProps = {
   sources: Source[];
   onOpenSource: (sourceId: string, excerpt?: string) => void;
 };
-
-type StreamEvent =
-  | { type: "user"; message: ChatMessageItem }
-  | { type: "token"; text: string }
-  | { type: "done"; message: ChatMessageItem }
-  | { type: "error"; error: string };
 
 const STREAMING_ID = "streaming";
 
@@ -67,6 +62,7 @@ export default function ChatPanel({
   const [question, setQuestion] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [streamStatus, setStreamStatus] = useState<string | null>(null);
 
   async function loadMessages() {
     const response = await fetch(`/api/workspaces/${workspaceId}/chat`);
@@ -134,14 +130,34 @@ export default function ChatPanel({
           continue;
         }
 
-        const event = JSON.parse(line) as StreamEvent;
+        const event = JSON.parse(line) as ChatStreamEvent;
 
         if (event.type === "user") {
           setMessages((current) => [...current, event.message]);
         }
 
+        if (event.type === "status") {
+          setStreamStatus(event.label);
+          setMessages((current) => {
+            if (current.some((message) => message.id === STREAMING_ID)) {
+              return current;
+            }
+
+            return [
+              ...current,
+              {
+                id: STREAMING_ID,
+                role: "ASSISTANT",
+                content: "",
+                citations: null,
+                createdAt: new Date().toISOString(),
+              },
+            ];
+          });
+        }
+
         if (event.type === "token") {
-          streamingContent += event.text;
+          streamingContent += event.value;
           const content = streamingContent;
           setMessages((current) => {
             const withoutDraft = current.filter((message) => message.id !== STREAMING_ID);
@@ -159,14 +175,20 @@ export default function ChatPanel({
         }
 
         if (event.type === "done") {
-          setMessages((current) => [
-            ...current.filter((message) => message.id !== STREAMING_ID),
-            event.message,
-          ]);
+          setStreamStatus(null);
+          setMessages((current) => {
+            const withoutDraft = current.filter(
+              (message) =>
+                message.id !== STREAMING_ID && message.id !== event.userMessage.id,
+            );
+            return [...withoutDraft, event.userMessage, event.assistantMessage];
+          });
         }
 
         if (event.type === "error") {
-          toast.error(event.error);
+          setStreamStatus(null);
+          setMessages((current) => current.filter((message) => message.id !== STREAMING_ID));
+          toast.error(event.message);
         }
       }
     }
@@ -228,6 +250,7 @@ export default function ChatPanel({
                         message={message}
                         sources={sources}
                         onOpenSource={onOpenSource}
+                        statusLabel={message.id === STREAMING_ID ? streamStatus : null}
                       />
                     </MessageScrollerItem>
                   ))}
@@ -285,10 +308,12 @@ function ChatMessage({
   message,
   sources,
   onOpenSource,
+  statusLabel,
 }: {
   message: ChatMessageItem;
   sources: Source[];
   onOpenSource: (sourceId: string, excerpt?: string) => void;
+  statusLabel?: string | null;
 }) {
   const isUser = message.role === "USER";
   const isStreaming = message.id === STREAMING_ID;
@@ -297,20 +322,22 @@ function ChatMessage({
   return (
     <Message align={isUser ? "end" : "start"}>
       <MessageContent>
-        <Bubble variant={isUser ? "default" : "muted"} align={isUser ? "end" : "start"}>
-          <BubbleContent>
-            {isUser ? (
-              <p className="whitespace-pre-wrap">{message.content}</p>
-            ) : (
-              <AssistantContent
-                content={message.content}
-                citations={citations}
-                sources={sources}
-                onOpenSource={onOpenSource}
-              />
-            )}
-          </BubbleContent>
-        </Bubble>
+        {isStreaming && !message.content ? null : (
+          <Bubble variant={isUser ? "default" : "muted"} align={isUser ? "end" : "start"}>
+            <BubbleContent>
+              {isUser ? (
+                <p className="whitespace-pre-wrap">{message.content}</p>
+              ) : (
+                <AssistantContent
+                  content={message.content}
+                  citations={citations}
+                  sources={sources}
+                  onOpenSource={onOpenSource}
+                />
+              )}
+            </BubbleContent>
+          </Bubble>
+        )}
         {!isUser && citations.length > 0 ? (
           <div className="flex flex-wrap gap-1">
             {citations.map((citation) => (
@@ -325,7 +352,7 @@ function ChatMessage({
         ) : null}
         <MessageFooter>
           {isStreaming
-            ? "Thinking..."
+            ? (statusLabel ?? "Thinking...")
             : new Date(message.createdAt).toLocaleTimeString([], {
                 hour: "numeric",
                 minute: "2-digit",
