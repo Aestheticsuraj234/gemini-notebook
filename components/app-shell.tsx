@@ -8,7 +8,7 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
-    const isAuthPage = pathname === "/login";
+    const isAuthPage = pathname.startsWith("/auth");
     const isWorkspacePage = pathname.startsWith("/workspaces/");
   
     if (isAuthPage) {

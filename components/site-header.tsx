@@ -15,6 +15,7 @@ import {
   } from "@/components/ui/breadcrumb";
   import { Separator } from "@/components/ui/separator";
   import { SidebarTrigger } from "@/components/ui/sidebar";
+import UserMenu from "@/modules/auth/components/user-menu";
 
   function useBreadcrumbs() {
     const pathname = usePathname();
@@ -71,7 +72,7 @@ import {
         </Breadcrumb>
         <div className="flex items-center gap-2">
           <ModeToggle />
-          {/* <UserMenu />commented out  */}
+          <UserMenu/>
         </div>
       </header>
     );
