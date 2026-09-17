@@ -3,6 +3,7 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
+import { NextResponse } from "next/server";
 
 export async function signIn(email: string, password: string) {
   await auth.api.signInEmail({
@@ -56,3 +57,18 @@ export async function requireUnauth() {
     redirect("/");
   }
 }
+
+
+
+export async function getSessionUser() {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+
+  if (!session?.user) {
+    return null;
+  }
+
+  return session.user;
+}
+
