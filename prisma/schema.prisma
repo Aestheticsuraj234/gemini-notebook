@@ -86,6 +86,7 @@ model Workspace {
 
   sources Source[]
   conversations Conversation[]
+  artifacts Artifact[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -148,4 +149,33 @@ model Message {
 
   @@index([conversationId])
   @@map("message")
+}
+
+enum ArtifactType {
+  SUMMARY
+  FLASHCARDS
+  QUIZ
+  STUDY_GUIDE
+  GLOSSARY
+}
+
+enum ArtifactStatus {
+  READY
+  FAILED
+}
+
+model Artifact {
+  id           String         @id @default(cuid())
+  workspaceId  String
+  type         ArtifactType
+  title        String
+  content      Json
+  sourceIds    Json
+  status       ArtifactStatus @default(READY)
+  errorMessage String?
+  createdAt    DateTime       @default(now())
+  workspace    Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@map("artifact")
 }

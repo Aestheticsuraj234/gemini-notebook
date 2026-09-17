@@ -35,8 +35,9 @@ import {
   MessageScrollerViewport,
 } from "@/components/ui/message-scroller";
 import { Spinner } from "@/components/ui/spinner";
+import MarkdownContent from "@/components/markdown-content";
 import type { ChatStreamEvent } from "@/lib/chat-stream-types";
-import type { ChatCitation, ChatMessageItem } from "@/lib/chat-types";
+import type { ChatMessageItem } from "@/lib/chat-types";
 
 import ChatCitationChip from "./chat-citation";
 import type { Source } from "./source-panel";
@@ -328,12 +329,7 @@ function ChatMessage({
               {isUser ? (
                 <p className="whitespace-pre-wrap">{message.content}</p>
               ) : (
-                <AssistantContent
-                  content={message.content}
-                  citations={citations}
-                  sources={sources}
-                  onOpenSource={onOpenSource}
-                />
+                <MarkdownContent isAnimating={isStreaming}>{message.content}</MarkdownContent>
               )}
             </BubbleContent>
           </Bubble>
@@ -360,46 +356,6 @@ function ChatMessage({
         </MessageFooter>
       </MessageContent>
     </Message>
-  );
-}
-
-function AssistantContent({
-  content,
-  citations,
-  sources,
-  onOpenSource,
-}: {
-  content: string;
-  citations: ChatCitation[];
-  sources: Source[];
-  onOpenSource: (sourceId: string, excerpt?: string) => void;
-}) {
-  if (citations.length === 0) {
-    return <p className="whitespace-pre-wrap">{content}</p>;
-  }
-
-  const citationByRef = new Map(citations.map((citation) => [citation.refId, citation]));
-  const parts = content.split(/(\bS\d+\b)/g);
-
-  return (
-    <div className="whitespace-pre-wrap">
-      {parts.map((part, index) => {
-        const citation = citationByRef.get(part);
-        if (!citation) {
-          return <span key={`${part}-${index}`}>{part}</span>;
-        }
-
-        return (
-          <ChatCitationChip
-            key={`${part}-${index}`}
-            citation={citation}
-            originalUrl={sourceUrl(sources, citation.sourceId)}
-            compact
-            onOpen={onOpenSource}
-          />
-        );
-      })}
-    </div>
   );
 }
 

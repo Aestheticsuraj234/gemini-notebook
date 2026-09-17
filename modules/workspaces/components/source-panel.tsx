@@ -1,8 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import type { Route } from "next";
+import Link from "next/link";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
+  BookOpen02Icon,
   Delete02Icon,
   File01Icon,
   Globe02Icon,
@@ -33,6 +36,7 @@ export type Source = {
 };
 
 type SourcePanelProps = {
+  workspaceId: string;
   sources: Source[];
   loading: boolean;
   saving: boolean;
@@ -60,6 +64,7 @@ const addActions = [
 ];
 
 export default function SourcePanel({
+  workspaceId,
   sources,
   loading,
   saving,
@@ -203,6 +208,19 @@ export default function SourcePanel({
                     <Button
                       size="icon-xs"
                       variant="ghost"
+                      nativeButton={false}
+                      render={
+                        <Link
+                          href={`/workspaces/${workspaceId}/sources/${source.id}` as Route}
+                        />
+                      }
+                    >
+                      <HugeiconsIcon icon={BookOpen02Icon} strokeWidth={2} />
+                      <span className="sr-only">Preview {source.title}</span>
+                    </Button>
+                    <Button
+                      size="icon-xs"
+                      variant="ghost"
                       type="button"
                       className="opacity-0 transition-opacity group-hover:opacity-100"
                       onClick={() => onDelete(source.id)}
@@ -253,7 +271,7 @@ function sourceKindLabel(source: Source) {
 
 function SourceStatusBadge({ source }: { source: Source }) {
   if (source.status === "READY") {
-    return <Badge variant="secondary">Ready</Badge>;
+    return <Badge variant="success">Ready</Badge>;
   }
 
   if (source.status === "FAILED") {

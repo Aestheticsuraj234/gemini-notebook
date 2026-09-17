@@ -1,5 +1,7 @@
 "use client";
 
+import type { Route } from "next";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -10,9 +12,10 @@ import {
 } from "@/components/ui/resizable";
 
 import ArtifactPanel from "./artifact-panel";
+import ArtifactViewer from "./artifact-viewer";
+import { useArtifacts } from "./artifacts/use-artifacts";
 import ChatPanel from "./chat-panel";
 import SourcePanel, { type Source } from "./source-panel";
-import SourceViewer from "./source-viewer";
 
 type WorkspaceViewProps = {
   workspaceId: string;
@@ -23,9 +26,9 @@ export default function WorkspaceView({
   workspaceId,
   workspaceTitle,
 }: WorkspaceViewProps) {
+  const router = useRouter();
   const [sources, setSources] = useState<Source[]>([]);
   const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
-  const [highlightExcerpt, setHighlightExcerpt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
@@ -63,7 +66,6 @@ export default function WorkspaceView({
     toast.success("Source added");
     await loadSources();
     setSelectedSourceId(created.id);
-    setHighlightExcerpt(null);
     return true;
   }
 
@@ -114,7 +116,6 @@ export default function WorkspaceView({
 
     await loadSources();
     setSelectedSourceId(data.sources[0]?.id ?? null);
-    setHighlightExcerpt(null);
     return true;
   }
 
@@ -145,7 +146,6 @@ export default function WorkspaceView({
 
     await loadSources();
     setSelectedSourceId(created.id);
-    setHighlightExcerpt(null);
     return true;
   }
 
@@ -162,7 +162,6 @@ export default function WorkspaceView({
 
     if (selectedSourceId === sourceId) {
       setSelectedSourceId(null);
-      setHighlightExcerpt(null);
     }
 
     toast.success("Source deleted");
@@ -187,16 +186,19 @@ export default function WorkspaceView({
 
   function selectSource(sourceId: string) {
     setSelectedSourceId(sourceId);
-    setHighlightExcerpt(null);
   }
 
   function openSource(sourceId: string, excerpt?: string) {
-    setSelectedSourceId(sourceId);
-    setHighlightExcerpt(excerpt ?? null);
+    const params = new URLSearchParams();
+    if (excerpt) {
+      params.set("excerpt", excerpt);
+    }
+    const query = params.toString();
+    router.push(
+      `/workspaces/${workspaceId}/sources/${sourceId}${query ? `?${query}` : ""}` as Route,
+    );
   }
 
-  const selectedSource =
-    sources.find((source) => source.id === selectedSourceId) ?? null;
   const readySourceIds = sources
     .filter((source) => source.status === "READY")
     .map((source) => source.id);
@@ -204,21 +206,29 @@ export default function WorkspaceView({
     selectedSourceId && readySourceIds.includes(selectedSourceId)
       ? [selectedSourceId]
       : readySourceIds;
+  const {
+    artifacts,
+    selectedArtifact,
+    selectedArtifactId,
+    loading: artifactsLoading,
+    generatingType,
+    generatingStatus,
+    deletingId,
+    isViewing,
+    selectArtifact,
+    closeViewer,
+    generate,
+    remove,
+  } = useArtifacts({
+    workspaceId,
+    sourceIds: readySourceIds,
+  });
 
   return (
     <div
       data-workspace-id={workspaceId}
       className="flex h-full min-h-0 flex-1 flex-col overflow-hidden"
     >
-      <SourceViewer
-        source={selectedSource}
-        excerpt={highlightExcerpt}
-        onClose={() => {
-          setSelectedSourceId(null);
-          setHighlightExcerpt(null);
-        }}
-      />
-
       <ResizablePanelGroup
         orientation="horizontal"
         className="min-h-0 flex-1 bg-border"
@@ -226,6 +236,7 @@ export default function WorkspaceView({
       >
         <ResizablePanel id="sources" minSize="16%">
           <SourcePanel
+            workspaceId={workspaceId}
             sources={sources}
             loading={loading}
             saving={saving}
@@ -242,17 +253,50 @@ export default function WorkspaceView({
         </ResizablePanel>
         <ResizableHandle withHandle />
         <ResizablePanel id="chat" minSize="30%">
-          <ChatPanel
-            workspaceId={workspaceId}
-            workspaceTitle={workspaceTitle}
-            sourceIds={chatSourceIds}
-            sources={sources}
-            onOpenSource={openSource}
-          />
+          {isViewing ? (
+            <ArtifactViewer
+              artifact={selectedArtifact}
+              generatingType={generatingType}
+              generatingStatus={generatingStatus}
+              deleting={selectedArtifactId === deletingId}
+              retrying={Boolean(generatingType && selectedArtifact?.type === generatingType)}
+              onClose={closeViewer}
+              onDelete={selectedArtifact ? () => void remove(selectedArtifact.id) : undefined}
+              onRetry={
+                selectedArtifact ? () => void generate(selectedArtifact.type) : undefined
+              }
+              onOpenSource={(sourceId) => {
+                if (!sources.some((source) => source.id === sourceId)) {
+                  toast.error("That source is no longer available");
+                  return;
+                }
+                openSource(sourceId);
+              }}
+            />
+          ) : (
+            <ChatPanel
+              workspaceId={workspaceId}
+              workspaceTitle={workspaceTitle}
+              sourceIds={chatSourceIds}
+              sources={sources}
+              onOpenSource={openSource}
+            />
+          )}
         </ResizablePanel>
         <ResizableHandle withHandle />
         <ResizablePanel id="artifacts" minSize="18%">
-          <ArtifactPanel />
+          <ArtifactPanel
+            artifacts={artifacts}
+            loading={artifactsLoading}
+            selectedArtifactId={selectedArtifactId}
+            generatingType={generatingType}
+            generatingStatus={generatingStatus}
+            readySourceCount={readySourceIds.length}
+            deletingId={deletingId}
+            onGenerate={(type) => void generate(type)}
+            onSelect={selectArtifact}
+            onDelete={(artifactId) => void remove(artifactId)}
+          />
         </ResizablePanel>
       </ResizablePanelGroup>
     </div>

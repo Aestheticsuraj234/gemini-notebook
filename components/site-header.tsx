@@ -32,6 +32,16 @@ import UserMenu from "@/modules/auth/components/user-menu";
     }
   
     if (pathname.startsWith("/workspaces/")) {
+      const sourceMatch = pathname.match(/^\/workspaces\/([^/]+)\/sources\/([^/]+)/);
+      if (sourceMatch) {
+        return [
+          { label: "Home", href: "/" },
+          { label: "Workspaces", href: "/dashboard" },
+          { label: "Workspace", href: `/workspaces/${sourceMatch[1]}` },
+          { label: "Source", href: null },
+        ];
+      }
+
       return [
         { label: "Home", href: "/" },
         { label: "Workspaces", href: "/dashboard" },
